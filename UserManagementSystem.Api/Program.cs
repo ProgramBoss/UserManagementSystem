@@ -77,3 +77,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+//Program class is public for integration testing
+public partial class Program { }
