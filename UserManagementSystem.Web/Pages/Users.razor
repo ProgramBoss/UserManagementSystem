@@ -1,0 +1,425 @@
+@page "/users"
+@using UserManagementSystem.Web.Models
+@using UserManagementSystem.Web.Services
+@inject IUserApiService UserApiService
+@inject IGroupApiService GroupApiService
+@inject NavigationManager NavigationManager
+@inject ILogger<Users> Logger
+
+<PageTitle>Users</PageTitle>
+
+<h1>User Management</h1>
+
+@if (!string.IsNullOrEmpty(connectionError))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>Connection Error!</strong> @connectionError
+        <button type="button" class="btn-close" @onclick="@(() => connectionError = string.Empty)"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <span class="oi oi-plus"></span> Add New User
+    </button>
+    <button class="btn btn-secondary ms-2" @onclick="RefreshUsers">
+        <span class="oi oi-reload"></span> Refresh
+    </button>
+</div>
+
+@if (loading)
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading users from API...</p>
+    </div>
+}
+else if (users == null || !users.Any())
+{
+    <div class="alert alert-info">No users found. Click "Add New User" to create your first user.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Groups</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in users)
+                {
+                    <tr>
+                        <td>@user.Id</td>
+                        <td>@user.FirstName @user.LastName</td>
+                        <td>@user.Email</td>
+                        <td>@(user.PhoneNumber ?? "-")</td>
+                        <td>
+                            @if (user.Groups.Any())
+                            {
+                                <span>@string.Join(", ", user.Groups.Select(g => g.Name))</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No groups</span>
+                            }
+                        </td>
+                        <td>
+                            @if (user.IsActive)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info" @onclick="() => ShowEditModal(user)">
+                                <span class="oi oi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger ms-1" @onclick="() => ShowDeleteConfirmation(user)">
+                                <span class="oi oi-trash"></span> Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3">
+        <strong>Total Users: @users.Count</strong>
+    </div>
+}
+
+@* Create/Edit Modal *@
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit User" : "Create User")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@currentUser" OnValidSubmit="SaveUser">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label">First Name</label>
+                            <InputText class="form-control" @bind-Value="currentUser.FirstName" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Last Name</label>
+                            <InputText class="form-control" @bind-Value="currentUser.LastName" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText type="email" class="form-control" @bind-Value="currentUser.Email" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <InputText class="form-control" @bind-Value="currentUser.PhoneNumber" />
+                        </div>
+
+                        @if (isEditMode)
+                        {
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="currentUser.IsActive" />
+                                    <label class="form-check-label">Active</label>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Groups</label>
+                            @if (availableGroups != null && availableGroups.Any())
+                            {
+                                @foreach (var group in availableGroups)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               id="group-@group.Id"
+                                               checked="@currentUser.GroupIds.Contains(group.Id)"
+                                               @onchange="@((e) => ToggleGroup(group.Id, (bool)e.Value!))" />
+                                        <label class="form-check-label" for="group-@group.Id">
+                                            @group.Name - @group.Description
+                                        </label>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@saving">
+                                @if (saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                @(isEditMode ? "Update" : "Create")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Delete Confirmation Modal *@
+@if (showDeleteModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDeleteModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete user <strong>@userToDelete?.FirstName @userToDelete?.LastName</strong>?</p>
+                    <p class="text-danger">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteUser" disabled="@deleting">
+                        @if (deleting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserDto> users = new();
+    private List<GroupDto> availableGroups = new();
+    private UserFormModel currentUser = new();
+    private UserDto? userToDelete;
+    private bool loading = true;
+    private bool showModal = false;
+    private bool showDeleteModal = false;
+    private bool isEditMode = false;
+    private bool saving = false;
+    private bool deleting = false;
+    private string errorMessage = string.Empty;
+    private string connectionError = string.Empty;
+    private int editingUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        connectionError = string.Empty;
+        try
+        {
+            Logger.LogInformation("Loading users and groups...");
+            users = await UserApiService.GetAllUsersAsync();
+            availableGroups = await GroupApiService.GetAllGroupsAsync();
+            Logger.LogInformation("Successfully loaded {UserCount} users and {GroupCount} groups", users.Count, availableGroups.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load data");
+            connectionError = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task RefreshUsers()
+    {
+        await LoadData();
+    }
+
+    private void ShowCreateModal()
+    {
+        isEditMode = false;
+        currentUser = new UserFormModel();
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void ShowEditModal(UserDto user)
+    {
+        isEditMode = true;
+        editingUserId = user.Id;
+        currentUser = new UserFormModel
+        {
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            IsActive = user.IsActive,
+            GroupIds = user.Groups.Select(g => g.Id).ToList()
+        };
+        errorMessage = string.Empty;
+        showModal = true;
+    }
+
+    private void ToggleGroup(int groupId, bool isChecked)
+    {
+        if (isChecked && !currentUser.GroupIds.Contains(groupId))
+        {
+            currentUser.GroupIds.Add(groupId);
+        }
+        else if (!isChecked && currentUser.GroupIds.Contains(groupId))
+        {
+            currentUser.GroupIds.Remove(groupId);
+        }
+    }
+
+    private async Task SaveUser()
+    {
+        saving = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            if (isEditMode)
+            {
+                var updateDto = new UpdateUserDto
+                {
+                    FirstName = currentUser.FirstName,
+                    LastName = currentUser.LastName,
+                    Email = currentUser.Email,
+                    PhoneNumber = currentUser.PhoneNumber,
+                    IsActive = currentUser.IsActive,
+                    GroupIds = currentUser.GroupIds
+                };
+
+                var result = await UserApiService.UpdateUserAsync(editingUserId, updateDto);
+                if (result != null)
+                {
+                    await LoadData();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to update user. Please try again.";
+                }
+            }
+            else
+            {
+                var createDto = new CreateUserDto
+                {
+                    FirstName = currentUser.FirstName,
+                    LastName = currentUser.LastName,
+                    Email = currentUser.Email,
+                    PhoneNumber = currentUser.PhoneNumber,
+                    GroupIds = currentUser.GroupIds
+                };
+
+                var result = await UserApiService.CreateUserAsync(createDto);
+                if (result != null)
+                {
+                    await LoadData();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to create user. Please check if the email already exists.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving user");
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void ShowDeleteConfirmation(UserDto user)
+    {
+        userToDelete = user;
+        showDeleteModal = true;
+    }
+
+    private async Task DeleteUser()
+    {
+        if (userToDelete == null) return;
+
+        deleting = true;
+        try
+        {
+            var success = await UserApiService.DeleteUserAsync(userToDelete.Id);
+            if (success)
+            {
+                await LoadData();
+                CloseDeleteModal();
+            }
+            else
+            {
+                errorMessage = "Failed to delete user. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting user");
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            deleting = false;
+        }
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentUser = new();
+        errorMessage = string.Empty;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        userToDelete = null;
+    }
+
+    private class UserFormModel
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public bool IsActive { get; set; } = true;
+        public List<int> GroupIds { get; set; } = new();
+    }
+}

@@ -1,0 +1,177 @@
+@page "/dashboard"
+@using UserManagementSystem.Web.Models
+@using UserManagementSystem.Web.Services
+@inject IUserApiService UserApiService
+@inject IGroupApiService GroupApiService
+
+<PageTitle>Dashboard</PageTitle>
+
+<h1>Dashboard</h1>
+
+@if (loading)
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Total Users</h5>
+                            <h2 class="mb-0">@totalUsers</h2>
+                        </div>
+                        <span class="oi oi-people" style="font-size: 3rem; opacity: 0.5;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Total Groups</h5>
+                            <h2 class="mb-0">@groups.Count</h2>
+                        </div>
+                        <span class="oi oi-grid-three-up" style="font-size: 3rem; opacity: 0.5;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Active Users</h5>
+                            <h2 class="mb-0">@activeUsers</h2>
+                        </div>
+                        <span class="oi oi-check" style="font-size: 3rem; opacity: 0.5;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Users by Group</h5>
+                </div>
+                <div class="card-body">
+                    @if (userCountByGroup.Any())
+                    {
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Group Name</th>
+                                    <th class="text-end">User Count</th>
+                                    <th class="text-end">Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in userCountByGroup.OrderByDescending(x => x.UserCount))
+                                {
+                                    var percentage = totalUsers > 0 ? (item.UserCount * 100.0 / totalUsers) : 0;
+                                    <tr>
+                                        <td>@item.GroupName</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-primary">@item.UserCount</span>
+                                        </td>
+                                        <td class="text-end">@percentage.ToString("F1")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No data available</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Available Groups</h5>
+                </div>
+                <div class="card-body">
+                    @if (groups.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var group in groups)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">@group.Name</h6>
+                                        <small class="text-muted">@group.Permissions.Count permissions</small>
+                                    </div>
+                                    <p class="mb-1">@group.Description</p>
+                                    <small class="text-muted">
+                                        Permissions: @string.Join(", ", group.Permissions.Select(p => p.Name))
+                                    </small>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No groups available</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<GroupDto> groups = new();
+    private List<UserCountByGroupDto> userCountByGroup = new();
+    private List<UserDto> users = new();
+    private int totalUsers;
+    private int activeUsers;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        loading = true;
+
+        try
+        {
+            // Load all data in parallel
+            var groupsTask = GroupApiService.GetAllGroupsAsync();
+            var userCountTask = UserApiService.GetTotalUserCountAsync();
+            var userCountByGroupTask = UserApiService.GetUserCountByGroupAsync();
+            var usersTask = UserApiService.GetAllUsersAsync();
+
+            await Task.WhenAll(groupsTask, userCountTask, userCountByGroupTask, usersTask);
+
+            groups = await groupsTask;
+            totalUsers = await userCountTask;
+            userCountByGroup = await userCountByGroupTask;
+            users = await usersTask;
+            activeUsers = users.Count(u => u.IsActive);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

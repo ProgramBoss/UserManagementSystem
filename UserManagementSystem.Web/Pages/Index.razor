@@ -1,0 +1,95 @@
+﻿@page "/"
+
+<PageTitle>Home - User Management System</PageTitle>
+
+<div class="text-center">
+    <h1 class="display-4">Welcome to User Management System</h1>
+    <p class="lead">A comprehensive solution for managing users, groups, and permissions</p>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <span class="oi oi-dashboard" style="font-size: 3rem; color: #0d6efd;"></span>
+                <h5 class="card-title mt-3">Dashboard</h5>
+                <p class="card-text">View system statistics and user analytics</p>
+                <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <span class="oi oi-people" style="font-size: 3rem; color: #198754;"></span>
+                <h5 class="card-title mt-3">Users</h5>
+                <p class="card-text">Manage users, add, edit, or remove users</p>
+                <a href="/users" class="btn btn-success">Manage Users</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <span class="oi oi-document" style="font-size: 3rem; color: #0dcaf0;"></span>
+                <h5 class="card-title mt-3">API Documentation</h5>
+                <p class="card-text">View API endpoints and test them</p>
+                <a href="https://localhost:7000/swagger" target="_blank" class="btn btn-info">View Swagger</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5>Features</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><span class="oi oi-check text-success"></span> User Management</h6>
+                        <ul>
+                            <li>Create, read, update, and delete users</li>
+                            <li>Assign users to multiple groups</li>
+                            <li>Track user creation and modification dates</li>
+                            <li>Activate/deactivate user accounts</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><span class="oi oi-check text-success"></span> Groups & Permissions</h6>
+                        <ul>
+                            <li>Pre-configured groups (Admin, Level 1, Level 2, Manager)</li>
+                            <li>Granular permission system</li>
+                            <li>View user count per group</li>
+                            <li>Many-to-many relationships</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6><span class="oi oi-check text-success"></span> RESTful API</h6>
+                        <ul>
+                            <li>Clean and well-documented API</li>
+                            <li>Swagger/OpenAPI documentation</li>
+                            <li>Entity Framework Core with SQL Server</li>
+                            <li>Code-First migrations</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><span class="oi oi-check text-success"></span> Modern Architecture</h6>
+                        <ul>
+                            <li>Blazor Server for interactive UI</li>
+                            <li>Repository and Service patterns</li>
+                            <li>Dependency Injection</li>
+                            <li>.NET 8 with best practices</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
